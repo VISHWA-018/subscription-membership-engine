@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Choose your subscription plan - Basic, Premium, or Enterprise">
+    <title>Plans - MemberEngine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <span class="brand-icon">⚡</span>
+            MemberEngine
+        </a>
+        <div class="nav-links" id="navLinks"></div>
+        <div class="nav-actions" id="navActions"></div>
+    </nav>
+
+    <div class="page-wrapper">
+        <div class="container">
+            <!-- Header -->
+            <div class="hero" style="padding: 4rem 0 2rem;">
+                <span class="hero-badge">💎 Subscription Plans</span>
+                <h1 style="font-size: 2.5rem;">Choose Your Plan</h1>
+                <p>Select the tier that fits your needs. Higher tiers unlock more content and features.</p>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <!-- Current Plan Banner -->
+            <div id="currentPlanBanner" class="hidden" style="margin-bottom: 2rem;">
+                <div class="alert alert-info">
+                    <span id="currentPlanText"></span>
+                </div>
+            </div>
+
+            <!-- Plans Grid -->
+            <div class="pricing-grid" id="plansGrid">
+                <!-- Populated dynamically -->
+            </div>
+
+            <!-- Tier Comparison -->
+            <div style="margin-top: 3rem;">
+                <h2 style="text-align: center; font-size: 1.5rem; margin-bottom: 1.5rem;">Tier Access Comparison</h2>
+                <div class="table-container" style="max-width: 700px; margin: 0 auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Basic</th>
+                                <th>Premium</th>
+                                <th>Enterprise</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Basic Content</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                            </tr>
+                            <tr>
+                                <td>Premium Content</td>
+                                <td style="color: var(--accent-danger);">❌</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                            </tr>
+                            <tr>
+                                <td>Enterprise Content</td>
+                                <td style="color: var(--accent-danger);">❌</td>
+                                <td style="color: var(--accent-danger);">❌</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                            </tr>
+                            <tr>
+                                <td>Priority Support</td>
+                                <td style="color: var(--accent-danger);">❌</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                                <td style="color: var(--accent-success);">✅</td>
+                            </tr>
+                            <tr>
+                                <td>Downloads</td>
+                                <td>50</td>
+                                <td>500</td>
+                                <td>Unlimited</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container">
+                <p>© 2026 MemberEngine — Subscription-Based Membership Engine with Tiered Logic</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let currentSub = null;
+
+        /**
+         * Load all plans and current subscription
+         */
+        async function loadPlans() {
+            // Load plans
+            const { data: plansData } = await apiRequest('/subscriptions/plans');
+            if (!plansData.success) {
+                showAlert('Failed to load plans.', 'danger');
+                return;
+            }
+
+            // Check current subscription if logged in
+            if (isAuthenticated()) {
+                const { data: subData } = await apiRequest('/subscriptions/my-subscription');
+                if (subData.success && subData.data.active) {
+                    currentSub = subData.data.active;
+                    document.getElementById('currentPlanText').textContent =
+                        `You are currently on the ${currentSub.plan_name} plan (Access Level ${currentSub.access_level})`;
+                    document.getElementById('currentPlanBanner').classList.remove('hidden');
+                }
+            }
+
+            renderPlans(plansData.data.plans);
+        }
+
+        /**
+         * Render the pricing cards
+         */
+        function renderPlans(plans) {
+            const tierClasses = { 1: 'basic', 2: 'premium', 3: 'enterprise' };
+            const tierIcons = { 1: '🚀', 2: '⭐', 3: '💎' };
+
+            const grid = document.getElementById('plansGrid');
+            grid.innerHTML = plans.map(plan => {
+                const tierClass = tierClasses[plan.access_level] || 'basic';
+                const tierIcon = tierIcons[plan.access_level] || '📦';
+                const isCurrent = currentSub && currentSub.plan_id === plan.id;
+                const isFeatured = plan.access_level === 2;
+
+                const downloadText = plan.max_download_limit > 0
+                    ? `${plan.max_download_limit} downloads/month`
+                    : 'Unlimited downloads';
+
+                let buttonHtml;
+                if (isCurrent) {
+                    buttonHtml = `<button class="btn btn-block btn-secondary" disabled>Current Plan</button>`;
+                } else if (currentSub) {
+                    const action = plan.access_level > currentSub.access_level ? 'Upgrade' : 'Downgrade';
+                    buttonHtml = `<button class="btn btn-block btn-primary" onclick="changePlan(${plan.id}, '${plan.plan_name}')">${action} to ${plan.plan_name}</button>`;
+                } else if (isAuthenticated()) {
+                    buttonHtml = `<button class="btn btn-block btn-primary" onclick="subscribeToPlan(${plan.id}, '${plan.plan_name}')">Subscribe</button>`;
+                } else {
+                    buttonHtml = `<a href="/register" class="btn btn-block btn-primary">Get Started</a>`;
+                }
+
+                return `
+          <div class="pricing-card ${tierClass} ${isFeatured ? 'featured' : ''}">
+            ${isFeatured ? '<div class="pricing-badge">Popular</div>' : ''}
+            <div class="pricing-icon">${tierIcon}</div>
+            <h3>${plan.plan_name}</h3>
+            <div class="price">$${parseFloat(plan.price).toFixed(2)}<span>/mo</span></div>
+            <ul class="pricing-features">
+              <li>Access Level ${plan.access_level}</li>
+              <li>${downloadText}</li>
+              <li${plan.priority_support ? '' : ' class="disabled"'}>Priority Support</li>
+              <li>Basic Content Access</li>
+              <li${plan.access_level >= 2 ? '' : ' class="disabled"'}>Premium Content Access</li>
+              <li${plan.access_level >= 3 ? '' : ' class="disabled"'}>Enterprise Content Access</li>
+            </ul>
+            ${buttonHtml}
+          </div>
+        `;
+            }).join('');
+        }
+
+        /**
+         * Subscribe to a new plan
+         */
+        async function subscribeToPlan(planId, planName) {
+            if (!confirm(`Subscribe to ${planName} plan?`)) return;
+
+            const { data } = await apiRequest('/subscriptions/subscribe', {
+                method: 'POST',
+                body: JSON.stringify({ planId })
+            });
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => window.location.href = '/dashboard', 1500);
+            } else {
+                showAlert(data.error?.message || 'Subscription failed.', 'danger');
+            }
+        }
+
+        /**
+         * Change (upgrade/downgrade) plan
+         */
+        async function changePlan(newPlanId, planName) {
+            if (!confirm(`Change your plan to ${planName}? Your download counter will reset.`)) return;
+
+            const { data } = await apiRequest('/subscriptions/change-plan', {
+                method: 'PUT',
+                body: JSON.stringify({ newPlanId })
+            });
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => window.location.href = '/dashboard', 1500);
+            } else {
+                showAlert(data.error?.message || 'Plan change failed.', 'danger');
+            }
+        }
+
+        // Initialize
+        loadPlans();
+    </script>
+</body>
+
+</html>

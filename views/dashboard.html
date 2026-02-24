@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Your Membership Dashboard - View subscription, access content, manage plan">
+    <title>Dashboard - MemberEngine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <span class="brand-icon">⚡</span>
+            MemberEngine
+        </a>
+        <div class="nav-links" id="navLinks"></div>
+        <div class="nav-actions" id="navActions"></div>
+    </nav>
+
+    <div class="page-wrapper">
+        <div class="container">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header" style="padding-top: 2rem;">
+                <div class="flex-between">
+                    <div>
+                        <h1 id="dashGreeting">Dashboard</h1>
+                        <p id="dashSubtitle" class="text-muted">Manage your subscription and access content</p>
+                    </div>
+                    <div id="dashTierBadge"></div>
+                </div>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <!-- Subscription Info -->
+            <div id="subInfoSection" class="hidden">
+                <div class="sub-info-card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700;">Active Subscription</h3>
+                        <div id="subStatus"></div>
+                    </div>
+                    <div class="sub-info-grid" id="subInfoGrid"></div>
+                    <div style="margin-top: 1.25rem;">
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">Download Usage
+                        </p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="downloadProgress" style="width: 0%"></div>
+                        </div>
+                        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.3rem;"
+                            id="downloadLabel"></p>
+                    </div>
+                    <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <a href="/plans" class="btn btn-sm btn-outline">Change Plan</a>
+                        <button class="btn btn-sm btn-success" onclick="renewSubscription()">Renew Subscription</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Subscription Banner -->
+            <div id="noSubBanner" class="hidden">
+                <div class="card" style="text-align: center; padding: 3rem 2rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                    <h3 style="margin-bottom: 0.5rem;">No Active Subscription</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Subscribe to a plan to unlock
+                        tier-based content access.</p>
+                    <a href="/plans" class="btn btn-primary">Browse Plans</a>
+                </div>
+            </div>
+
+            <!-- Tier Content Access -->
+            <div id="contentSection" class="content-section hidden">
+                <h2>📦 Content Access</h2>
+                <p class="text-muted mb-2">Access tier-protected resources based on your subscription level.</p>
+
+                <div class="content-grid">
+                    <div class="content-item" onclick="loadTierContent('basic')" id="basicContentBtn">
+                        <div class="item-icon" style="background: rgba(99,102,241,0.15);">📘</div>
+                        <div class="item-info">
+                            <h4>Basic Content</h4>
+                            <p>Requires Basic tier or higher</p>
+                        </div>
+                    </div>
+                    <div class="content-item" onclick="loadTierContent('premium')" id="premiumContentBtn">
+                        <div class="item-icon" style="background: rgba(245,158,11,0.15);">📙</div>
+                        <div class="item-info">
+                            <h4>Premium Content</h4>
+                            <p>Requires Premium tier or higher</p>
+                        </div>
+                    </div>
+                    <div class="content-item" onclick="loadTierContent('enterprise')" id="enterpriseContentBtn">
+                        <div class="item-icon" style="background: rgba(6,182,212,0.15);">📕</div>
+                        <div class="item-info">
+                            <h4>Enterprise Content</h4>
+                            <p>Requires Enterprise tier</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Display Area -->
+                <div id="contentDisplay" class="hidden" style="margin-top: 1.5rem;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 id="contentTitle"></h3>
+                            <p id="contentDesc"></p>
+                        </div>
+                        <div id="contentResources"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscription History -->
+            <div id="historySection" class="content-section hidden">
+                <h2>📜 Subscription History</h2>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Plan</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Status</th>
+                                <th>Downloads</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container">
+                <p>© 2026 MemberEngine — Subscription-Based Membership Engine with Tiered Logic</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        // Redirect if not logged in
+        if (!isAuthenticated()) {
+            window.location.href = '/login';
+        }
+
+        let currentSubscription = null;
+
+        /**
+         * Load dashboard data from the API
+         */
+        async function loadDashboard() {
+            const user = getUser();
+            if (!user) return;
+
+            // Update greeting
+            document.getElementById('dashGreeting').textContent = `Welcome, ${user.name}`;
+
+            // Load profile + subscription data
+            const { data } = await apiRequest('/auth/profile');
+            if (!data.success) {
+                showAlert(data.error?.message || 'Failed to load dashboard.', 'danger');
+                return;
+            }
+
+            const { activeSubscription, subscriptionHistory } = data.data;
+            currentSubscription = activeSubscription;
+
+            if (activeSubscription) {
+                renderSubscriptionInfo(activeSubscription);
+                document.getElementById('subInfoSection').classList.remove('hidden');
+                document.getElementById('contentSection').classList.remove('hidden');
+                document.getElementById('noSubBanner').classList.add('hidden');
+            } else {
+                document.getElementById('subInfoSection').classList.add('hidden');
+                document.getElementById('contentSection').classList.add('hidden');
+                document.getElementById('noSubBanner').classList.remove('hidden');
+            }
+
+            // Render history
+            if (subscriptionHistory && subscriptionHistory.length > 0) {
+                renderHistory(subscriptionHistory);
+                document.getElementById('historySection').classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Render the active subscription info panel
+         */
+        function renderSubscriptionInfo(sub) {
+            const tierClass = sub.plan_name.toLowerCase();
+            document.getElementById('dashTierBadge').innerHTML =
+                `<span class="tier-badge ${tierClass}">${sub.plan_name}</span>`;
+
+            document.getElementById('subStatus').innerHTML =
+                `<span class="status-badge ${sub.status}">${sub.status}</span>`;
+
+            const daysLeft = getDaysRemaining(sub.end_date);
+
+            document.getElementById('subInfoGrid').innerHTML = `
+        <div class="sub-info-item">
+          <span class="label">Plan</span>
+          <span class="value">${sub.plan_name}</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">Price</span>
+          <span class="value">$${parseFloat(sub.price).toFixed(2)}/mo</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">Access Level</span>
+          <span class="value">Level ${sub.access_level}</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">Start Date</span>
+          <span class="value">${formatDate(sub.start_date)}</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">End Date</span>
+          <span class="value">${formatDate(sub.end_date)}</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">Days Remaining</span>
+          <span class="value" style="color: ${daysLeft <= 5 ? 'var(--accent-danger)' : 'var(--accent-success)'}">${daysLeft} days</span>
+        </div>
+        <div class="sub-info-item">
+          <span class="label">Priority Support</span>
+          <span class="value">${sub.priority_support ? '✅ Yes' : '❌ No'}</span>
+        </div>
+      `;
+
+            // Download progress
+            const maxDl = sub.max_download_limit || 0;
+            const used = sub.download_count || 0;
+            const pct = maxDl > 0 ? Math.min(100, (used / maxDl) * 100) : 0;
+
+            const progressBar = document.getElementById('downloadProgress');
+            progressBar.style.width = maxDl > 0 ? `${pct}%` : '0%';
+            if (pct >= 90) progressBar.classList.add('danger');
+            else if (pct >= 70) progressBar.classList.add('warning');
+
+            document.getElementById('downloadLabel').textContent = maxDl > 0
+                ? `${used} / ${maxDl} downloads used`
+                : `${used} downloads used (Unlimited)`;
+        }
+
+        /**
+         * Render subscription history table
+         */
+        function renderHistory(history) {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = history.map(h => `
+        <tr>
+          <td>${h.plan_name}</td>
+          <td>${formatDate(h.start_date)}</td>
+          <td>${formatDate(h.end_date)}</td>
+          <td><span class="status-badge ${h.status}">${h.status}</span></td>
+          <td>${h.download_count || 0}</td>
+        </tr>
+      `).join('');
+        }
+
+        /**
+         * Load tier-protected content
+         * Demonstrates the tier access engine in action
+         */
+        async function loadTierContent(tier) {
+            const { status, data } = await apiRequest(`/subscriptions/${tier}-content`);
+
+            const display = document.getElementById('contentDisplay');
+            display.classList.remove('hidden');
+
+            if (data.success) {
+                document.getElementById('contentTitle').textContent = data.data.title;
+                document.getElementById('contentDesc').textContent = `Tier: ${data.data.tier} | Downloads: ${data.data.downloads_used}`;
+
+                document.getElementById('contentResources').innerHTML = data.data.resources.map(r => `
+          <div class="content-item" style="margin-top: 0.5rem;">
+            <div class="item-icon">📄</div>
+            <div class="item-info">
+              <h4>${r.name}</h4>
+              <p>Type: ${r.type} ${r.size ? '| ' + r.size : ''}</p>
+            </div>
+          </div>
+        `).join('');
+
+                // Reload dashboard to update download count
+                loadDashboard();
+            } else {
+                document.getElementById('contentTitle').textContent = '⛔ Access Denied';
+                document.getElementById('contentDesc').textContent = data.error?.message || 'You do not have access to this content.';
+                document.getElementById('contentResources').innerHTML = `
+          <div class="alert alert-warning" style="margin-top: 1rem;">
+            ${data.error?.action || 'Upgrade your plan to access this content.'}
+          </div>
+        `;
+            }
+        }
+
+        /**
+         * Renew the current subscription
+         */
+        async function renewSubscription() {
+            if (!confirm('Renew your subscription for 30 more days?')) return;
+
+            const { data } = await apiRequest('/subscriptions/renew', { method: 'POST' });
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                loadDashboard();
+            } else {
+                showAlert(data.error?.message || 'Renewal failed.', 'danger');
+            }
+        }
+
+        // Initialize
+        loadDashboard();
+    </script>
+</body>
+
+</html>
